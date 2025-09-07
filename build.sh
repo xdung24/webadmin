@@ -16,6 +16,6 @@ fi
 
 # Build the Go app
 echo "Building Go app..."
-go build -o "$BINARY_NAME"
+CGO_ENABLED=1 go build -ldflags '-w -s' -o "$BINARY_NAME"
 
 echo "Build completed successfully!"

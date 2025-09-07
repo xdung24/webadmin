@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
@@ -46,6 +47,12 @@ func parseFlags() (string, bool, bool) {
 
 // server the admin app
 func serveAdminApp(port string, verbose bool, enableMetrics bool) {
+	// Initialize database
+	if err := initDatabase(); err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer db.Close()
+
 	// Create a subdirectory file system for `dist/ng-matero/browser`
 	subFS, err := fs.Sub(embeddedFiles, "dist/ng-matero/browser")
 	if err != nil {
@@ -65,17 +72,22 @@ func serveAdminApp(port string, verbose bool, enableMetrics bool) {
 		config.DisableStartupMessage = false
 	}
 	app := fiber.New(config)
+
+	// Add CORS middleware
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "*",
+		AllowMethods: "GET,POST,HEAD,PUT,DELETE,PATCH,OPTIONS",
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+	}))
+
 	if verbose {
 		app.Use(logger.New(logger.Config{
 			Format: "[${ip}]:${port} ${status} - ${method} ${path}\n",
 		}))
 	}
 
-	// Serve files using Fiber's filesystem middleware
-	app.Use("/", filesystem.New(filesystem.Config{
-		Root:  http.FS(subFS),
-		Index: "index.html",
-	}))
+	// Setup API routes
+	setupRoutes(app)
 
 	// Register the metrics endpoint
 	if enableMetrics {
@@ -85,6 +97,12 @@ func serveAdminApp(port string, verbose bool, enableMetrics bool) {
 		}
 		app.Get("/metrics", monitor.New(metricConfigs))
 	}
+
+	// Serve files using Fiber's filesystem middleware
+	app.Use("/", filesystem.New(filesystem.Config{
+		Root:  http.FS(subFS),
+		Index: "index.html",
+	}))
 
 	// Fallback route to serve index.html for unmatched routes
 	app.Use(func(c *fiber.Ctx) error {
@@ -100,6 +118,7 @@ func serveAdminApp(port string, verbose bool, enableMetrics bool) {
 	})
 
 	log.Printf("Serving on http://127.0.0.1:%s\n", port)
+	log.Printf("Default login: username=ng-matero, password=ng-matero\n")
 	if err := app.Listen(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}

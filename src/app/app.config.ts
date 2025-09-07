@@ -17,7 +17,6 @@ import { FORMLY_CONFIG, provideFormlyCore } from '@ngx-formly/core';
 import { withFormlyMaterial } from '@ngx-formly/material';
 import { provideTranslateService, TranslateLoader, TranslateService } from '@ngx-translate/core';
 import { TranslateHttpLoader } from '@ngx-translate/http-loader';
-import { InMemoryWebApiModule } from 'angular-in-memory-web-api';
 import { NgxPermissionsModule } from 'ngx-permissions';
 import { provideToastr } from 'ngx-toastr';
 
@@ -30,7 +29,6 @@ import {
 } from '@core';
 import { environment } from '@env/environment';
 import { formlyConfigFactory, PaginatorI18nService } from '@shared';
-import { InMemDataService } from '@shared/in-mem/in-mem-data.service';
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
@@ -54,12 +52,7 @@ export const appConfig: ApplicationConfig = {
       },
     }),
     importProvidersFrom(
-      NgxPermissionsModule.forRoot(),
-      // 👇 ❌ This is only used for demo purpose, remove it in the realworld application
-      InMemoryWebApiModule.forRoot(InMemDataService, {
-        dataEncapsulation: false,
-        passThruUnknownUrl: true,
-      })
+      NgxPermissionsModule.forRoot()
     ),
     provideFormlyCore([...withFormlyMaterial()]),
     {

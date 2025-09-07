@@ -1,11 +1,9 @@
 <!doctype html>
 <html lang="en">
-
 <head>
   <meta charset="utf-8">
   <title>NgMatero</title>
   <base href="/">
-
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link rel="stylesheet" href="fonts/Material_Icons.css">
@@ -26,15 +24,12 @@
       opacity: 1;
       transition: opacity .5s ease-in-out;
     }
-
     .global-loader-fade-out {
       opacity: 0;
     }
-
     .global-loader-hidden {
       display: none;
     }
-
     .global-loader h1 {
       font-family: "Helvetica Neue", Helvetica, sans-serif;
       font-weight: normal;
@@ -62,24 +57,20 @@
       animation-fill-mode: forwards;
       animation-timing-function: linear;
     }
-
     @keyframes gradient {
       0% {
         background-position: 0 0;
       }
-
       100% {
         background-position: -750% 0;
       }
     }
   </style>
 </head>
-
 <body>
   <app-root></app-root>
   <div id="globalLoader" class="global-loader">
     <h1>LOADING</h1>
   </div>
 </body>
-
 </html>
