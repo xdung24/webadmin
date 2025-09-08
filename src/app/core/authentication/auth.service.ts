@@ -62,7 +62,7 @@ export class AuthService {
   }
 
   menu() {
-    return iif(() => this.check(), this.loginService.menu(), of([]));
+    return iif(() => this.check(), this.loginService.menu(this.user$.getValue().role), of([]));
   }
 
   private assignUser() {
@@ -74,6 +74,12 @@ export class AuthService {
       return of(this.user$.getValue());
     }
 
-    return this.loginService.user().pipe(tap(user => this.user$.next(user)));
+    return this.loginService.user().pipe(
+      tap(user => {
+        // Assign a default role if not present in user data
+        const userWithRole = { ...user, role: user.role || 'user' };
+        this.user$.next(userWithRole);
+      })
+    );
   }
 }

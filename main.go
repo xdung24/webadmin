@@ -169,7 +169,6 @@ func serveAdminApp(port string, sqlitePath string, verbose bool, enableMetrics b
 	})
 
 	log.Printf("Serving on http://127.0.0.1:%s\n", port)
-	log.Printf("Default login: username=admin, password=adminpwd\n")
 	if err := app.Listen(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}

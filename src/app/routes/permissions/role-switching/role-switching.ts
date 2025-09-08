@@ -34,13 +34,6 @@ export class PermissionsRoleSwitching implements OnInit, OnDestroy {
   ngOnInit() {
     this.currentRole = Object.keys(this.rolesSrv.getRoles())[0];
     this.currentPermissions = Object.keys(this.permissionsSrv.getPermissions());
-
-    this.rolesSrv.roles$.pipe(takeUntil(this._destroy$)).subscribe(roles => {
-      console.log(roles);
-    });
-    this.permissionsSrv.permissions$.pipe(takeUntil(this._destroy$)).subscribe(permissions => {
-      console.log(permissions);
-    });
   }
 
   ngOnDestroy() {

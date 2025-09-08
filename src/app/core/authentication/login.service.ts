@@ -27,7 +27,8 @@ export class LoginService {
     return this.http.get<User>('/user');
   }
 
-  menu() {
-    return this.http.get<{ menu: Menu[] }>('/user/menu').pipe(map(res => res.menu));
+  menu(role?: string) {
+    const url = role ? `/user/menu?role=${role}` : '/user/menu';
+    return this.http.get<{ menu: Menu[] }>(url).pipe(map(res => res.menu));
   }
 }

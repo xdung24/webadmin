@@ -153,13 +153,20 @@ func initDatabase(sqlitePath string) error {
 	db.Exec(addUpdatedAtColumn)
 
 	// Create default admin user if not exists
-	return createDefaultUser()
+	if err = createDefaultAdminUser(); err != nil {
+		return err
+	}
+	// Create default user if not exists
+	if err = createDefaultUser(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Create default admin user
-func createDefaultUser() error {
+func createDefaultAdminUser() error {
 	var count int
-	err := db.QueryRow("SELECT COUNT(*) FROM users").Scan(&count)
+	err := db.QueryRow("SELECT COUNT(*) FROM users WHERE role = 'admin'").Scan(&count)
 	if err != nil {
 		return err
 	}
@@ -173,7 +180,30 @@ func createDefaultUser() error {
 		_, err = db.Exec(`
 			INSERT INTO users (username, email, name, avatar, role, status, password) 
 			VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			"admin", "admin@ng-matero.com", "Administrator", "/images/avatar-default.jpg", "admin", "active", string(hashedPassword))
+			"admin", "admin@example.com", "Administrator", "/images/avatar.jpg", "admin", "active", string(hashedPassword))
+		return err
+	}
+	return nil
+}
+
+// Create default user if not exists
+func createDefaultUser() error {
+	var count int
+	err := db.QueryRow("SELECT COUNT(*) FROM users WHERE role = 'user'").Scan(&count)
+	if err != nil {
+		return err
+	}
+
+	if count == 0 {
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte("userpwd"), bcrypt.DefaultCost)
+		if err != nil {
+			return err
+		}
+
+		_, err = db.Exec(`
+			INSERT INTO users (username, email, name, avatar, role, status, password) 
+			VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			"user", "user@example.com", "User", "/images/avatar-default.jpg", "user", "active", string(hashedPassword))
 		return err
 	}
 

@@ -1,0 +1,50 @@
+{
+  "menu": [
+    {
+      "route": "dashboard",
+      "name": "dashboard",
+      "type": "link",
+      "icon": "dashboard",
+      "badge": {
+        "color": "red-50",
+        "value": "5"
+      }
+    },
+    {
+      "route": "admin",
+      "name": "admin",
+      "type": "sub",
+      "icon": "admin_panel_settings",
+      "label": {
+        "color": "red-50",
+        "value": "Admin"
+      },
+      "children": [
+        {
+          "route": "user-management",
+          "name": "user-management",
+          "type": "link",
+          "icon": "people"
+        }
+      ]
+    },
+    {
+      "route": "profile",
+      "name": "profile",
+      "type": "sub",
+      "icon": "person",
+      "children": [
+        {
+          "route": "overview",
+          "name": "overview",
+          "type": "link"
+        },
+        {
+          "route": "settings",
+          "name": "settings",
+          "type": "link"
+        }
+      ]
+    }
+  ]
+}

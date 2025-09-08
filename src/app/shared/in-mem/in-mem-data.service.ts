@@ -72,12 +72,12 @@ class JWT {
 
 const jwt = new JWT();
 
-function is(reqInfo: RequestInfo, path: string) {
+function startsWith(reqInfo: RequestInfo, path: string) {
   if (environment.baseUrl) {
     return false;
   }
 
-  return new RegExp(`${path}(/)?$`, 'i').test(reqInfo.req.url);
+  return new RegExp(`^.*${path}`, 'i').test(reqInfo.req.url);
 }
 
 @Injectable({
@@ -98,9 +98,18 @@ export class InMemDataService implements InMemoryDbService {
 
   get(reqInfo: RequestInfo) {
     const { headers, url } = reqInfo;
-
-    if (is(reqInfo, 'user/menu')) {
-      return ajax('data/menu.json?_t=' + Date.now()).pipe(
+    if (startsWith(reqInfo, 'user/menu')) {
+      // Extract role from query parameters
+      const urlParams = new URLSearchParams(reqInfo.req.url.split('?')[1] || '');
+      const role = urlParams.get('role') || '';
+      // Determine which menu file to load based on role
+      let menuFile = 'data/menu.json'; 
+      if(role == 'admin') {
+        menuFile= 'data/menu-admin.json';
+      } else if(role == 'user') {
+        menuFile= 'data/menu-user.json';
+      }
+      return ajax(`${menuFile}?_t=` + Date.now()).pipe(
         map((response: any) => {
           return { headers, url, status: STATUS.OK, body: { menu: response.response.menu } };
         }),
