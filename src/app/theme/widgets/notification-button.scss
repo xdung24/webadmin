@@ -1,0 +1,22 @@
+:host ::ng-deep .mat-badge-content {
+  --mat-badge-background-color: #ef0000;
+  --mat-badge-text-color: #fff;
+}
+
+.unread {
+  background-color: rgba(255, 193, 7, 0.1);
+  font-weight: 500;
+}
+
+.timestamp {
+  font-size: 0.75rem;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+mat-list-item {
+  cursor: pointer;
+}
+
+mat-list-item:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
