@@ -181,7 +181,7 @@ func createDefaultUser() error {
 	}
 
 	if count == 0 {
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte("ng-matero"), bcrypt.DefaultCost)
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte("adminpwd"), bcrypt.DefaultCost)
 		if err != nil {
 			return err
 		}
@@ -189,7 +189,7 @@ func createDefaultUser() error {
 		_, err = db.Exec(`
 			INSERT INTO users (username, email, name, avatar, role, status, password) 
 			VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			"ng-matero", "admin@ng-matero.com", "Administrator", "/images/avatar-default.jpg", "admin", "active", string(hashedPassword))
+			"admin", "admin@ng-matero.com", "Administrator", "/images/avatar-default.jpg", "admin", "active", string(hashedPassword))
 		return err
 	}
 
