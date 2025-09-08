@@ -2,27 +2,11 @@ package main
 
 import (
 	"database/sql"
-	"embed"
-	"encoding/json"
 	"strings"
-	"sync"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/bcrypt"
-)
-
-//go:embed docs/menu_default.json docs/menu_admin.json
-var menuFS embed.FS
-
-// Menu cache
-var (
-	menuCache struct {
-		sync.RWMutex
-		defaultMenu []Menu
-		adminMenu   []Menu
-		loaded      bool
-	}
 )
 
 type User struct {
@@ -367,59 +351,4 @@ func validateRefreshToken(token string) (int, error) {
 func deleteRefreshToken(token string) error {
 	_, err := db.Exec("DELETE FROM refresh_tokens WHERE token = ?", token)
 	return err
-}
-
-// Initialize menu cache
-func initMenuCache() error {
-	menuCache.Lock()
-	defer menuCache.Unlock()
-
-	if menuCache.loaded {
-		return nil
-	}
-
-	// Load default menu
-	defaultMenuData, err := menuFS.ReadFile("docs/menu_default.json")
-	if err != nil {
-		return err
-	}
-
-	if err := json.Unmarshal(defaultMenuData, &menuCache.defaultMenu); err != nil {
-		return err
-	}
-
-	// Load admin menu
-	adminMenuData, err := menuFS.ReadFile("docs/menu_admin.json")
-	if err != nil {
-		return err
-	}
-
-	if err := json.Unmarshal(adminMenuData, &menuCache.adminMenu); err != nil {
-		return err
-	}
-
-	menuCache.loaded = true
-	return nil
-}
-
-// Get default menu structure
-func getDefaultMenu() []Menu {
-	menuCache.RLock()
-	defer menuCache.RUnlock()
-
-	// Return a copy to prevent external modifications
-	menu := make([]Menu, len(menuCache.defaultMenu))
-	copy(menu, menuCache.defaultMenu)
-	return menu
-}
-
-// Get admin menu structure
-func getAdminMenu() []Menu {
-	menuCache.RLock()
-	defer menuCache.RUnlock()
-
-	// Return a copy to prevent external modifications
-	menu := make([]Menu, len(menuCache.adminMenu))
-	copy(menu, menuCache.adminMenu)
-	return menu
 }

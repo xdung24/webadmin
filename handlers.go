@@ -256,46 +256,6 @@ func userHandler(c *fiber.Ctx) error {
 	})
 }
 
-// GET /user/menu
-// Get menu configuration based on user role
-// @Summary		Get menu configuration
-// @Description	Get menu configuration based on user role
-// @Tags			user
-// @Accept			json
-// @Produce		json
-// @Success		200				{object}	MenuResponse
-// @Failure		500				{object}	ErrorResponse	"Failed to load menu configuration"
-// @Router			/user/menu [GET]
-func menuHandler(c *fiber.Ctx) error {
-	// Initialize menu cache on first call
-	menuCache.RLock()
-	if !menuCache.loaded {
-		menuCache.RUnlock()
-		log.Info("Menu cache not loaded, initializing...")
-		if err := initMenuCache(); err != nil {
-			log.Info(err)
-			return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
-				Error: "Failed to load menu configuration",
-			})
-		}
-		menuCache.RLock()
-	}
-	menuCache.RUnlock()
-
-	role := c.Locals("role").(string)
-
-	var menu []Menu
-	if role == "admin" {
-		menu = getAdminMenu()
-	} else {
-		menu = getDefaultMenu()
-	}
-
-	return c.Status(fiber.StatusOK).JSON(MenuResponse{
-		Menu: menu,
-	})
-}
-
 // GET /admin/users
 // Get all users (admin only)
 // @Summary		Get all users
@@ -683,7 +643,6 @@ func setupRoutes(app *fiber.App) {
 
 	// Protected routes (require authentication)
 	app.Get("/user", authMiddleware, userHandler)
-	app.Get("/user/menu", authMiddleware, menuHandler)
 
 	// Admin routes (require admin role)
 	admin := app.Group("/admin", authMiddleware, adminMiddleware)

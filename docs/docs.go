@@ -538,35 +538,6 @@ const docTemplate = `{
                     }
                 }
             }
-        },
-        "/user/menu": {
-            "get": {
-                "description": "Get menu configuration based on user role",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "user"
-                ],
-                "summary": "Get menu configuration",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/main.MenuResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Failed to load menu configuration",
-                        "schema": {
-                            "$ref": "#/definitions/main.ErrorResponse"
-                        }
-                    }
-                }
-            }
         }
     },
     "definitions": {
@@ -621,43 +592,6 @@ const docTemplate = `{
             "properties": {
                 "refresh_token": {
                     "type": "string"
-                }
-            }
-        },
-        "main.Menu": {
-            "type": "object",
-            "properties": {
-                "badge": {
-                    "type": "string"
-                },
-                "children": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/main.Menu"
-                    }
-                },
-                "icon": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "route": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "main.MenuResponse": {
-            "type": "object",
-            "properties": {
-                "menu": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/main.Menu"
-                    }
                 }
             }
         },

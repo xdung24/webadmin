@@ -45,6 +45,7 @@ testem.log
 .yarn
 .vscode
 .angular
+webadmin.db
 
 # System Files
 .DS_Store

@@ -34,30 +34,6 @@ definitions:
       refresh_token:
         type: string
     type: object
-  main.Menu:
-    properties:
-      badge:
-        type: string
-      children:
-        items:
-          $ref: '#/definitions/main.Menu'
-        type: array
-      icon:
-        type: string
-      name:
-        type: string
-      route:
-        type: string
-      type:
-        type: string
-    type: object
-  main.MenuResponse:
-    properties:
-      menu:
-        items:
-          $ref: '#/definitions/main.Menu'
-        type: array
-    type: object
   main.RefreshRequest:
     properties:
       refresh_token:
@@ -469,25 +445,6 @@ paths:
           schema:
             $ref: '#/definitions/main.ErrorResponse'
       summary: Get user information
-      tags:
-      - user
-  /user/menu:
-    get:
-      consumes:
-      - application/json
-      description: Get menu configuration based on user role
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/main.MenuResponse'
-        "500":
-          description: Failed to load menu configuration
-          schema:
-            $ref: '#/definitions/main.ErrorResponse'
-      summary: Get menu configuration
       tags:
       - user
 swagger: "2.0"
