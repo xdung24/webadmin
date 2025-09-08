@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/log"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -55,6 +56,19 @@ func adminMiddleware(c *fiber.Ctx) error {
 }
 
 // POST /auth/login
+// Login godoc
+//
+//	@Summary		User login
+//	@Description	Authenticate user and return tokens
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			loginRequest	body		LoginRequest	true	"Login credentials"
+//	@Success		200				{object}	Token
+//	@Failure		400				{object}	ErrorResponse	"Invalid request body or missing required fields"
+//	@Failure		401				{object}	ErrorResponse	"Invalid credentials"
+//	@Failure		500				{object}	ErrorResponse	"Internal server error"
+//	@Router			/auth/login [POST]
 func loginHandler(c *fiber.Ctx) error {
 	var req LoginRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -117,6 +131,19 @@ func loginHandler(c *fiber.Ctx) error {
 }
 
 // POST /auth/refresh
+// Refresh access token godoc
+//
+//	@Summary		Refresh access token
+//	@Description	Generate a new access token using a refresh token
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			refreshRequest	body		RefreshRequest	true	"Refresh token"
+//	@Success		200				{object}	Token
+//	@Failure		400				{object}	ErrorResponse	"Invalid request body or missing refresh token"
+//	@Failure		401				{object}	ErrorResponse	"Invalid or expired refresh token"
+//	@Failure		500				{object}	ErrorResponse	"Failed to generate access token"
+//	@Router			/auth/refresh [POST]
 func refreshHandler(c *fiber.Ctx) error {
 	var req RefreshRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -163,11 +190,20 @@ func refreshHandler(c *fiber.Ctx) error {
 }
 
 // POST /auth/logout
+// Logout godoc
+//
+//	@Summary		User logout
+//	@Description	Log out user and invalidate refresh token
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			logoutRequest	body		LogoutRequest	false	"Refresh token to invalidate (optional)"
+//	@Success		200				{object}	SuccessResponse	"Logout successful message"
+//	@Failure		500				{object}	ErrorResponse	"Failed to process logout"
+//	@Router			/auth/logout [POST]
 func logoutHandler(c *fiber.Ctx) error {
 	// Get refresh token from request body if provided
-	var req struct {
-		RefreshToken string `json:"refresh_token,omitempty"`
-	}
+	var req LogoutRequest
 	c.BodyParser(&req)
 
 	// If refresh token is provided, delete it from database
@@ -175,19 +211,28 @@ func logoutHandler(c *fiber.Ctx) error {
 		deleteRefreshToken(req.RefreshToken)
 	}
 
-	return c.JSON(fiber.Map{
-		"message": "Logged out successfully",
+	return c.Status(fiber.StatusOK).JSON(SuccessResponse{
+		Message: "Logged out successfully",
 	})
 }
 
 // GET /user
+// Get user information by id
+// @Summary		Get user information
+// @Description	Get user information by ID
+// @Tags			user
+// @Accept			json
+// @Produce		json
+// @Success		200				{object}	UserResponse
+// @Failure		400				{object}	ErrorResponse	"User not found"
+// @Router			/user [GET]
 func userHandler(c *fiber.Ctx) error {
 	userID := c.Locals("userID").(int)
 
 	user, err := getUserByID(userID)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "User not found",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error: "User not found",
 		})
 	}
 
@@ -205,7 +250,31 @@ func userHandler(c *fiber.Ctx) error {
 }
 
 // GET /user/menu
+// Get menu configuration based on user role
+// @Summary		Get menu configuration
+// @Description	Get menu configuration based on user role
+// @Tags			user
+// @Accept			json
+// @Produce		json
+// @Success		200				{object}	MenuResponse
+// @Failure		500				{object}	ErrorResponse	"Failed to load menu configuration"
+// @Router			/user/menu [GET]
 func menuHandler(c *fiber.Ctx) error {
+	// Initialize menu cache on first call
+	menuCache.RLock()
+	if !menuCache.loaded {
+		menuCache.RUnlock()
+		log.Info("Menu cache not loaded, initializing...")
+		if err := initMenuCache(); err != nil {
+			log.Info(err)
+			return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+				Error: "Failed to load menu configuration",
+			})
+		}
+		menuCache.RLock()
+	}
+	menuCache.RUnlock()
+
 	role := c.Locals("role").(string)
 
 	var menu []Menu
@@ -215,12 +284,24 @@ func menuHandler(c *fiber.Ctx) error {
 		menu = getDefaultMenu()
 	}
 
-	return c.JSON(fiber.Map{
-		"menu": menu,
+	return c.JSON(MenuResponse{
+		Menu: menu,
 	})
 }
 
-// GET /admin/users - Get all users (admin only)
+// GET /admin/users
+// Get all users (admin only)
+// @Summary		Get all users
+// @Description	Retrieve a paginated list of all users (admin only)
+// @Tags			admin
+// @Accept			json
+// @Produce		json
+// @Param			limit	query		int	false	"Number of users to return"	minimum(1)	default(10)
+// @Param			offset	query		int	false	"Number of users to skip"		minimum(0)	default(0)
+// @Success		200		{object}	UsersListResponse
+// @Failure		400		{object}	ErrorResponse	"Invalid query parameters"
+// @Failure		500		{object}	ErrorResponse	"Failed to fetch users"
+// @Router			/admin/users [GET]
 func getUsersHandler(c *fiber.Ctx) error {
 	// Parse pagination parameters
 	limit := 10
@@ -240,8 +321,8 @@ func getUsersHandler(c *fiber.Ctx) error {
 
 	users, total, err := getAllUsers(limit, offset)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch users",
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error: "Failed to fetch users",
 		})
 	}
 
@@ -266,38 +347,50 @@ func getUsersHandler(c *fiber.Ctx) error {
 	})
 }
 
-// POST /admin/users - Create new user (admin only)
+// POST /admin/users
+// Create new user (admin only)
+// @Summary		Create new user
+// @Description	Create a new user (admin only)
+// @Tags			admin
+// @Accept			json
+// @Produce		json
+// @Param			createUserRequest	body		CreateUserRequest	true	"User details"
+// @Success		201					{object}	UserResponse
+// @Failure		400					{object}	ErrorResponse	"Invalid request body or missing required fields"
+// @Failure		409					{object}	ErrorResponse	"Username or email already exists"
+// @Failure		500					{object}	ErrorResponse	"Failed to create user"
+// @Router			/admin/users [POST]
 func createUserHandler(c *fiber.Ctx) error {
 	var req CreateUserRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error: "Invalid request body",
 		})
 	}
 
 	// Validate required fields
 	if req.Username == "" || req.Email == "" || req.Name == "" || req.Password == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Username, email, name, and password are required",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error: "Username, email, name, and password are required",
 		})
 	}
 
 	// Validate role
 	if req.Role != "" && req.Role != "admin" && req.Role != "user" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Role must be 'admin' or 'user'",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error: "Role must be 'admin' or 'user'",
 		})
 	}
 
 	user, err := createUser(req)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-				"error": "Username or email already exists",
+			return c.Status(fiber.StatusConflict).JSON(ErrorResponse{
+				Error: "Username or email already exists",
 			})
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to create user",
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error: "Failed to create user",
 		})
 	}
 
@@ -314,24 +407,36 @@ func createUserHandler(c *fiber.Ctx) error {
 	})
 }
 
-// GET /admin/users/:id - Get user by ID (admin only)
+// GET /admin/users/:id
+// Get user by ID (admin only)
+// @Summary		Get user by ID
+// @Description	Get user details by ID (admin only)
+// @Tags			admin
+// @Accept			json
+// @Produce		json
+// @Param			id	path		int	true	"User ID"
+// @Success		200	{object}	UserResponse
+// @Failure		400	{object}	ErrorResponse	"Invalid user ID"
+// @Failure		404	{object}	ErrorResponse	"User not found"
+// @Failure		500	{object}	ErrorResponse	"Failed to fetch user"
+// @Router			/admin/users/{id} [GET]
 func getUserByIDHandler(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid user ID",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error: "Invalid user ID",
 		})
 	}
 
 	user, err := getUserByID(id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error": "User not found",
+			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+				Error: "User not found",
 			})
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch user",
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error: "Failed to fetch user",
 		})
 	}
 
@@ -348,50 +453,64 @@ func getUserByIDHandler(c *fiber.Ctx) error {
 	})
 }
 
-// PUT /admin/users/:id - Update user (admin only)
+// PUT /admin/users/:id
+// Update user (admin only)
+// @Summary		Update user
+// @Description	Update user details by ID (admin only)
+// @Tags			admin
+// @Accept			json
+// @Produce		json
+// @Param			id					path		int					true	"User ID"
+// @Param			updateUserRequest	body		UpdateUserRequest	true	"Updated user details"
+// @Success		200					{object}	UserResponse
+// @Failure		400					{object}	ErrorResponse	"Invalid user ID or request body"
+// @Failure		404					{object}	ErrorResponse	"User not found"
+// @Failure		409					{object}	ErrorResponse	"Email already exists"
+// @Failure		500					{object}	ErrorResponse	"Failed to update user"
+// @Router			/admin/users/{id} [PUT]
 func updateUserHandler(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid user ID",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error: "Invalid user ID",
 		})
 	}
 
 	var req UpdateUserRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error: "Invalid request body",
 		})
 	}
 
 	// Validate role if provided
 	if req.Role != "" && req.Role != "admin" && req.Role != "user" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Role must be 'admin' or 'user'",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error: "Role must be 'admin' or 'user'",
 		})
 	}
 
 	// Validate status if provided
 	if req.Status != "" && req.Status != "active" && req.Status != "disabled" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Status must be 'active' or 'disabled'",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error: "Status must be 'active' or 'disabled'",
 		})
 	}
 
 	user, err := updateUser(id, req)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error": "User not found",
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Error: "User not found",
 			})
 		}
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-				"error": "Email already exists",
+			return c.Status(fiber.StatusConflict).JSON(ErrorResponse{
+				Error: "Email already exists",
 			})
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to update user",
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error: "Failed to update user",
 		})
 	}
 
@@ -408,53 +527,76 @@ func updateUserHandler(c *fiber.Ctx) error {
 	})
 }
 
-// DELETE /admin/users/:id - Delete user (admin only)
+// DELETE /admin/users/:id
+// Delete user (admin only)
+// @Summary		Delete user
+// @Description	Delete user by ID (admin only)
+// @Tags			admin
+// @Accept			json
+// @Produce		json
+// @Param			id	path		int	true	"User ID"
+// @Success		200	{object}	SuccessResponse	"User deleted successfully message"
+// @Failure		400	{object}	ErrorResponse	"Invalid user ID or cannot delete own account"
+// @Failure		500	{object}	ErrorResponse	"Failed to delete user"
+// @Router			/admin/users/{id} [DELETE]
 func deleteUserHandler(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid user ID",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error: "Invalid user ID",
 		})
 	}
 
 	// Prevent deleting own account
 	currentUserID := c.Locals("userID").(int)
 	if id == currentUserID {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Cannot delete your own account",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error: "Cannot delete your own account",
 		})
 	}
 
 	err = deleteUser(id)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to delete user",
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error: "Failed to delete user",
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"message": "User deleted successfully",
+	return c.Status(fiber.StatusOK).JSON(SuccessResponse{
+		Message: "User deleted successfully",
 	})
 }
 
-// PUT /admin/users/:id/enable - Enable user (admin only)
+// PUT /admin/users/:id/enable
+// Enable user (admin only)
+// @Summary		Enable user
+// @Description	Enable a disabled user account (admin only)
+// @Tags			admin
+// @Accept			json
+// @Produce		json
+// @Param			id	path		int	true	"User ID"
+// @Success		200	{object}	UserResponse
+// @Failure		400	{object}	ErrorResponse	"Invalid user ID"
+// @Failure		400	{object}	ErrorResponse	"User not found"
+// @Failure		500	{object}	ErrorResponse	"Failed to enable user"
+// @Router			/admin/users/{id}/enable [PUT]
 func enableUserHandler(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid user ID",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error: "Invalid user ID",
 		})
 	}
 
 	user, err := updateUser(id, UpdateUserRequest{Status: "active"})
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error": "User not found",
+			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+				Error: "User not found",
 			})
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to enable user",
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error: "Failed to enable user",
 		})
 	}
 
@@ -471,32 +613,44 @@ func enableUserHandler(c *fiber.Ctx) error {
 	})
 }
 
-// PUT /admin/users/:id/disable - Disable user (admin only)
+// PUT /admin/users/:id/disable
+// Disable user (admin only)
+// @Summary		Disable user
+// @Description	Disable a user account (admin only)
+// @Tags			admin
+// @Accept			json
+// @Produce		json
+// @Param			id	path		int	true	"User ID"
+// @Success		200	{object}	UserResponse
+// @Failure		400	{object}	ErrorResponse	"Invalid user ID or cannot disable own account"
+// @Failure		400	{object}	ErrorResponse	"User not found"
+// @Failure		500	{object}	ErrorResponse	"Failed to disable user"
+// @Router			/admin/users/{id}/disable [PUT]
 func disableUserHandler(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid user ID",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error: "Invalid user ID",
 		})
 	}
 
 	// Prevent disabling own account
 	currentUserID := c.Locals("userID").(int)
 	if id == currentUserID {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Cannot disable your own account",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error: "Cannot disable your own account",
 		})
 	}
 
 	user, err := updateUser(id, UpdateUserRequest{Status: "disabled"})
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error": "User not found",
+			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+				Error: "User not found",
 			})
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to disable user",
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error: "Failed to disable user",
 		})
 	}
 

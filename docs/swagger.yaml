@@ -1,0 +1,489 @@
+definitions:
+  main.CreateUserRequest:
+    properties:
+      avatar:
+        type: string
+      email:
+        type: string
+      name:
+        type: string
+      password:
+        type: string
+      role:
+        description: '"admin" or "user"'
+        type: string
+      username:
+        type: string
+    type: object
+  main.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  main.LoginRequest:
+    properties:
+      password:
+        type: string
+      rememberMe:
+        type: boolean
+      username:
+        type: string
+    type: object
+  main.LogoutRequest:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  main.Menu:
+    properties:
+      badge:
+        type: string
+      children:
+        items:
+          $ref: '#/definitions/main.Menu'
+        type: array
+      icon:
+        type: string
+      name:
+        type: string
+      route:
+        type: string
+      type:
+        type: string
+    type: object
+  main.MenuResponse:
+    properties:
+      menu:
+        items:
+          $ref: '#/definitions/main.Menu'
+        type: array
+    type: object
+  main.RefreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  main.SuccessResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  main.Token:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
+      token_type:
+        type: string
+    type: object
+  main.UpdateUserRequest:
+    properties:
+      avatar:
+        type: string
+      email:
+        type: string
+      name:
+        type: string
+      role:
+        type: string
+      status:
+        type: string
+    type: object
+  main.UserResponse:
+    properties:
+      avatar:
+        type: string
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      role:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+      username:
+        type: string
+    type: object
+  main.UsersListResponse:
+    properties:
+      total:
+        type: integer
+      users:
+        items:
+          $ref: '#/definitions/main.UserResponse'
+        type: array
+    type: object
+info:
+  contact: {}
+paths:
+  /admin/users:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a paginated list of all users (admin only)
+      parameters:
+      - default: 10
+        description: Number of users to return
+        in: query
+        minimum: 1
+        name: limit
+        type: integer
+      - default: 0
+        description: Number of users to skip
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.UsersListResponse'
+        "400":
+          description: Invalid query parameters
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "500":
+          description: Failed to fetch users
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: Get all users
+      tags:
+      - admin
+    post:
+      consumes:
+      - application/json
+      description: Create a new user (admin only)
+      parameters:
+      - description: User details
+        in: body
+        name: createUserRequest
+        required: true
+        schema:
+          $ref: '#/definitions/main.CreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/main.UserResponse'
+        "400":
+          description: Invalid request body or missing required fields
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "409":
+          description: Username or email already exists
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "500":
+          description: Failed to create user
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: Create new user
+      tags:
+      - admin
+  /admin/users/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete user by ID (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User deleted successfully message
+          schema:
+            $ref: '#/definitions/main.SuccessResponse'
+        "400":
+          description: Invalid user ID or cannot delete own account
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "500":
+          description: Failed to delete user
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: Delete user
+      tags:
+      - admin
+    get:
+      consumes:
+      - application/json
+      description: Get user details by ID (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.UserResponse'
+        "400":
+          description: Invalid user ID
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "500":
+          description: Failed to fetch user
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: Get user by ID
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: Update user details by ID (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Updated user details
+        in: body
+        name: updateUserRequest
+        required: true
+        schema:
+          $ref: '#/definitions/main.UpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.UserResponse'
+        "400":
+          description: Invalid user ID or request body
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "409":
+          description: Email already exists
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "500":
+          description: Failed to update user
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: Update user
+      tags:
+      - admin
+  /admin/users/{id}/disable:
+    put:
+      consumes:
+      - application/json
+      description: Disable a user account (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.UserResponse'
+        "400":
+          description: User not found
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "500":
+          description: Failed to disable user
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: Disable user
+      tags:
+      - admin
+  /admin/users/{id}/enable:
+    put:
+      consumes:
+      - application/json
+      description: Enable a disabled user account (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.UserResponse'
+        "400":
+          description: User not found
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "500":
+          description: Failed to enable user
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: Enable user
+      tags:
+      - admin
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user and return tokens
+      parameters:
+      - description: Login credentials
+        in: body
+        name: loginRequest
+        required: true
+        schema:
+          $ref: '#/definitions/main.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.Token'
+        "400":
+          description: Invalid request body or missing required fields
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "401":
+          description: Invalid credentials
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: User login
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Log out user and invalidate refresh token
+      parameters:
+      - description: Refresh token to invalidate (optional)
+        in: body
+        name: logoutRequest
+        schema:
+          $ref: '#/definitions/main.LogoutRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Logout successful message
+          schema:
+            $ref: '#/definitions/main.SuccessResponse'
+        "500":
+          description: Failed to process logout
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: User logout
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Generate a new access token using a refresh token
+      parameters:
+      - description: Refresh token
+        in: body
+        name: refreshRequest
+        required: true
+        schema:
+          $ref: '#/definitions/main.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.Token'
+        "400":
+          description: Invalid request body or missing refresh token
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "401":
+          description: Invalid or expired refresh token
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "500":
+          description: Failed to generate access token
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: Refresh access token
+      tags:
+      - auth
+  /user:
+    get:
+      consumes:
+      - application/json
+      description: Get user information by ID
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.UserResponse'
+        "400":
+          description: User not found
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: Get user information
+      tags:
+      - user
+  /user/menu:
+    get:
+      consumes:
+      - application/json
+      description: Get menu configuration based on user role
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.MenuResponse'
+        "500":
+          description: Failed to load menu configuration
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: Get menu configuration
+      tags:
+      - user
+swagger: "2.0"

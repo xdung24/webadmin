@@ -9,21 +9,25 @@ import (
 	"os"
 	"time"
 
+	_ "webadmin/docs"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
+	"github.com/gofiber/swagger"
 )
 
 //go:embed dist/ng-matero/browser/*
 var embeddedFiles embed.FS
 
 // parse command-line flags
-func parseFlags() (string, bool, bool) {
+func parseFlags() (string, bool, bool, bool) {
 	portFlag := flag.String("port", "", "Port to run the server on")
 	verboseFlag := flag.Bool("verbose", false, "Enable verbose mode")
 	metricsFlag := flag.Bool("metrics", false, "Enable metrics endpoint")
+	swaggerFlag := flag.Bool("swagger", false, "Enable swagger endpoint")
 	flag.Parse()
 
 	// Determine the port to use
@@ -42,11 +46,27 @@ func parseFlags() (string, bool, bool) {
 			verbose = true
 		}
 	}
-	return port, verbose, *metricsFlag
+
+	// Determine if metrics endpoint is enabled
+	enableMetrics := *metricsFlag
+	if !enableMetrics {
+		if os.Getenv("metrics") == "true" {
+			enableMetrics = true
+		}
+	}
+
+	// Determine if swagger endpoint is enabled
+	enableSwagger := *swaggerFlag
+	if !enableSwagger {
+		if os.Getenv("swagger") == "true" {
+			enableSwagger = true
+		}
+	}
+	return port, verbose, enableMetrics, enableSwagger
 }
 
 // server the admin app
-func serveAdminApp(port string, verbose bool, enableMetrics bool) {
+func serveAdminApp(port string, verbose bool, enableMetrics bool, enableSwagger bool) {
 	// Initialize database
 	if err := initDatabase(); err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
@@ -80,14 +100,12 @@ func serveAdminApp(port string, verbose bool, enableMetrics bool) {
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 	}))
 
+	// Add logger middleware
 	if verbose {
 		app.Use(logger.New(logger.Config{
 			Format: "[${ip}]:${port} ${status} - ${method} ${path}\n",
 		}))
 	}
-
-	// Setup API routes
-	setupRoutes(app)
 
 	// Register the metrics endpoint
 	if enableMetrics {
@@ -97,6 +115,29 @@ func serveAdminApp(port string, verbose bool, enableMetrics bool) {
 		}
 		app.Get("/metrics", monitor.New(metricConfigs))
 	}
+
+	// Register the swagger endpoint
+	if enableSwagger {
+		log.Println("Swagger endpoint enabled")
+		app.Get("/swagger/*", swagger.HandlerDefault) // default
+
+		app.Get("/swagger/*", swagger.New(swagger.Config{ // custom
+			URL:         "http://localhost:8080/swagger/doc.json",
+			DeepLinking: false,
+			// Expand ("list") or Collapse ("none") tag groups by default
+			DocExpansion: "none",
+			// Prefill OAuth ClientId on Authorize popup
+			OAuth: &swagger.OAuthConfig{
+				AppName:  "OAuth Provider",
+				ClientId: "21bb4edc-05a7-4afc-86f1-2e151e4ba6e2",
+			},
+			// Ability to change OAuth2 redirect uri location
+			OAuth2RedirectUrl: "http://localhost:8080/swagger/oauth2-redirect.html",
+		}))
+	}
+
+	// Setup API routes
+	setupRoutes(app)
 
 	// Serve files using Fiber's filesystem middleware
 	app.Use("/", filesystem.New(filesystem.Config{
@@ -125,6 +166,5 @@ func serveAdminApp(port string, verbose bool, enableMetrics bool) {
 }
 
 func main() {
-	port, verbose, enableMetrics := parseFlags()
-	serveAdminApp(port, verbose, enableMetrics)
+	serveAdminApp(parseFlags())
 }

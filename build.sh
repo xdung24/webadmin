@@ -14,8 +14,12 @@ else
   BINARY_NAME="dist/webadmin"
 fi
 
+# Generate Go documentation (Swagger)
+echo "Generating Go documentation..."
+swag init --generalInfo main.go --output docs
+
 # Build the Go app
 echo "Building Go app..."
-CGO_ENABLED=1 go build -ldflags '-w -s' -o "$BINARY_NAME"
+CGO_ENABLED=1 go build -ldflags '-w -s' -v -o "$BINARY_NAME"
 
 echo "Build completed successfully!"

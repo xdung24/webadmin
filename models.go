@@ -2,12 +2,27 @@ package main
 
 import (
 	"database/sql"
+	"embed"
 	"encoding/json"
 	"strings"
+	"sync"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/bcrypt"
+)
+
+//go:embed docs/menu_default.json docs/menu_admin.json
+var menuFS embed.FS
+
+// Menu cache
+var (
+	menuCache struct {
+		sync.RWMutex
+		defaultMenu []Menu
+		adminMenu   []Menu
+		loaded      bool
+	}
 )
 
 type User struct {
@@ -40,6 +55,10 @@ type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+type LogoutRequest struct {
+	RefreshToken string `json:"refresh_token,omitempty"`
+}
+
 type Menu struct {
 	Route    string `json:"route"`
 	Name     string `json:"name"`
@@ -47,6 +66,10 @@ type Menu struct {
 	Icon     string `json:"icon"`
 	Badge    string `json:"badge,omitempty"`
 	Children []Menu `json:"children,omitempty"`
+}
+
+type MenuResponse struct {
+	Menu []Menu `json:"menu"`
 }
 
 type UserResponse struct {
@@ -81,6 +104,13 @@ type UpdateUserRequest struct {
 type UsersListResponse struct {
 	Users []UserResponse `json:"users"`
 	Total int            `json:"total"`
+}
+
+type SuccessResponse struct {
+	Message string `json:"message"`
+}
+type ErrorResponse struct {
+	Error string `json:"error"`
 }
 
 // Database connection
@@ -339,258 +369,57 @@ func deleteRefreshToken(token string) error {
 	return err
 }
 
+// Initialize menu cache
+func initMenuCache() error {
+	menuCache.Lock()
+	defer menuCache.Unlock()
+
+	if menuCache.loaded {
+		return nil
+	}
+
+	// Load default menu
+	defaultMenuData, err := menuFS.ReadFile("docs/menu_default.json")
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(defaultMenuData, &menuCache.defaultMenu); err != nil {
+		return err
+	}
+
+	// Load admin menu
+	adminMenuData, err := menuFS.ReadFile("docs/menu_admin.json")
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(adminMenuData, &menuCache.adminMenu); err != nil {
+		return err
+	}
+
+	menuCache.loaded = true
+	return nil
+}
+
 // Get default menu structure
 func getDefaultMenu() []Menu {
-	menuJSON := `[
-		{
-			"route": "/dashboard",
-			"name": "dashboard",
-			"type": "link",
-			"icon": "dashboard"
-		},
-		{
-			"route": "/material",
-			"name": "material",
-			"type": "sub",
-			"icon": "description",
-			"children": [
-				{
-					"route": "/material/form-controls",
-					"name": "form-controls",
-					"type": "link"
-				},
-				{
-					"route": "/material/navigation",
-					"name": "navigation",
-					"type": "link"
-				},
-				{
-					"route": "/material/layout",
-					"name": "layout",
-					"type": "link"
-				},
-				{
-					"route": "/material/buttons-indicators",
-					"name": "buttons-indicators",
-					"type": "link"
-				},
-				{
-					"route": "/material/popups-modals",
-					"name": "popups-modals",
-					"type": "link"
-				},
-				{
-					"route": "/material/data-table",
-					"name": "data-table",
-					"type": "link"
-				}
-			]
-		},
-		{
-			"route": "/forms",
-			"name": "forms",
-			"type": "sub",
-			"icon": "description",
-			"children": [
-				{
-					"route": "/forms/form-controls",
-					"name": "form-controls",
-					"type": "link"
-				},
-				{
-					"route": "/forms/dynamic",
-					"name": "dynamic",
-					"type": "link"
-				},
-				{
-					"route": "/forms/select",
-					"name": "select",
-					"type": "link"
-				},
-				{
-					"route": "/forms/datetime",
-					"name": "datetime",
-					"type": "link"
-				}
-			]
-		},
-		{
-			"route": "/tables",
-			"name": "tables",
-			"type": "sub",
-			"icon": "format_line_spacing",
-			"children": [
-				{
-					"route": "/tables/kitchen-sink",
-					"name": "kitchen-sink",
-					"type": "link"
-				},
-				{
-					"route": "/tables/remote-data",
-					"name": "remote-data",
-					"type": "link"
-				}
-			]
-		},
-		{
-			"route": "/profile",
-			"name": "profile",
-			"type": "sub",
-			"icon": "account_circle",
-			"children": [
-				{
-					"route": "/profile/overview",
-					"name": "overview",
-					"type": "link"
-				},
-				{
-					"route": "/profile/settings",
-					"name": "settings",
-					"type": "link"
-				}
-			]
-		}
-	]`
+	menuCache.RLock()
+	defer menuCache.RUnlock()
 
-	var menu []Menu
-	json.Unmarshal([]byte(menuJSON), &menu)
+	// Return a copy to prevent external modifications
+	menu := make([]Menu, len(menuCache.defaultMenu))
+	copy(menu, menuCache.defaultMenu)
 	return menu
 }
 
 // Get admin menu structure
 func getAdminMenu() []Menu {
-	adminMenuJSON := `[
-		{
-			"route": "/dashboard",
-			"name": "dashboard",
-			"type": "link",
-			"icon": "dashboard"
-		},
-		{
-			"route": "/admin",
-			"name": "admin",
-			"type": "sub",
-			"icon": "admin_panel_settings",
-			"children": [
-				{
-					"route": "/admin/users",
-					"name": "users",
-					"type": "link",
-					"icon": "people"
-				},
-				{
-					"route": "/admin/settings",
-					"name": "settings",
-					"type": "link",
-					"icon": "settings"
-				}
-			]
-		},
-		{
-			"route": "/material",
-			"name": "material",
-			"type": "sub",
-			"icon": "description",
-			"children": [
-				{
-					"route": "/material/form-controls",
-					"name": "form-controls",
-					"type": "link"
-				},
-				{
-					"route": "/material/navigation",
-					"name": "navigation",
-					"type": "link"
-				},
-				{
-					"route": "/material/layout",
-					"name": "layout",
-					"type": "link"
-				},
-				{
-					"route": "/material/buttons-indicators",
-					"name": "buttons-indicators",
-					"type": "link"
-				},
-				{
-					"route": "/material/popups-modals",
-					"name": "popups-modals",
-					"type": "link"
-				},
-				{
-					"route": "/material/data-table",
-					"name": "data-table",
-					"type": "link"
-				}
-			]
-		},
-		{
-			"route": "/forms",
-			"name": "forms",
-			"type": "sub",
-			"icon": "description",
-			"children": [
-				{
-					"route": "/forms/form-controls",
-					"name": "form-controls",
-					"type": "link"
-				},
-				{
-					"route": "/forms/dynamic",
-					"name": "dynamic",
-					"type": "link"
-				},
-				{
-					"route": "/forms/select",
-					"name": "select",
-					"type": "link"
-				},
-				{
-					"route": "/forms/datetime",
-					"name": "datetime",
-					"type": "link"
-				}
-			]
-		},
-		{
-			"route": "/tables",
-			"name": "tables",
-			"type": "sub",
-			"icon": "format_line_spacing",
-			"children": [
-				{
-					"route": "/tables/kitchen-sink",
-					"name": "kitchen-sink",
-					"type": "link"
-				},
-				{
-					"route": "/tables/remote-data",
-					"name": "remote-data",
-					"type": "link"
-				}
-			]
-		},
-		{
-			"route": "/profile",
-			"name": "profile",
-			"type": "sub",
-			"icon": "account_circle",
-			"children": [
-				{
-					"route": "/profile/overview",
-					"name": "overview",
-					"type": "link"
-				},
-				{
-					"route": "/profile/settings",
-					"name": "settings",
-					"type": "link"
-				}
-			]
-		}
-	]`
+	menuCache.RLock()
+	defer menuCache.RUnlock()
 
-	var menu []Menu
-	json.Unmarshal([]byte(adminMenuJSON), &menu)
+	// Return a copy to prevent external modifications
+	menu := make([]Menu, len(menuCache.adminMenu))
+	copy(menu, menuCache.adminMenu)
 	return menu
 }
