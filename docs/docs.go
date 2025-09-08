@@ -524,8 +524,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/main.UserResponse"
                         }
                     },
-                    "400": {
+                    "404": {
                         "description": "User not found",
+                        "schema": {
+                            "$ref": "#/definitions/main.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch user",
                         "schema": {
                             "$ref": "#/definitions/main.ErrorResponse"
                         }

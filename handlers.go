@@ -127,7 +127,7 @@ func loginHandler(c *fiber.Ctx) error {
 		}
 	}
 
-	return c.JSON(response)
+	return c.Status(fiber.StatusOK).JSON(response)
 }
 
 // POST /auth/refresh
@@ -182,7 +182,7 @@ func refreshHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(Token{
+	return c.Status(fiber.StatusOK).JSON(Token{
 		AccessToken: accessToken,
 		TokenType:   "Bearer",
 		ExpiresIn:   86400, // 24 hours in seconds
@@ -224,19 +224,26 @@ func logoutHandler(c *fiber.Ctx) error {
 // @Accept			json
 // @Produce		json
 // @Success		200				{object}	UserResponse
-// @Failure		400				{object}	ErrorResponse	"User not found"
+// @Failure		404				{object}	ErrorResponse	"User not found"
+// @Failure		500				{object}	ErrorResponse	"Failed to fetch user"
 // @Router			/user [GET]
 func userHandler(c *fiber.Ctx) error {
 	userID := c.Locals("userID").(int)
 
 	user, err := getUserByID(userID)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-			Error: "User not found",
+		log.Warnf("Failed to get user by ID %d: %v", userID, err)
+		if err == sql.ErrNoRows {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Error: "User not found",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error: "Failed to fetch user",
 		})
 	}
 
-	return c.JSON(UserResponse{
+	return c.Status(fiber.StatusOK).JSON(UserResponse{
 		ID:        user.ID,
 		Name:      user.Name,
 		Email:     user.Email,
@@ -284,7 +291,7 @@ func menuHandler(c *fiber.Ctx) error {
 		menu = getDefaultMenu()
 	}
 
-	return c.JSON(MenuResponse{
+	return c.Status(fiber.StatusOK).JSON(MenuResponse{
 		Menu: menu,
 	})
 }
@@ -341,7 +348,7 @@ func getUsersHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(UsersListResponse{
+	return c.Status(fiber.StatusOK).JSON(UsersListResponse{
 		Users: userResponses,
 		Total: total,
 	})
@@ -440,7 +447,7 @@ func getUserByIDHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(UserResponse{
+	return c.Status(fiber.StatusOK).JSON(UserResponse{
 		ID:        user.ID,
 		Name:      user.Name,
 		Email:     user.Email,
@@ -514,7 +521,7 @@ func updateUserHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(UserResponse{
+	return c.Status(fiber.StatusOK).JSON(UserResponse{
 		ID:        user.ID,
 		Name:      user.Name,
 		Email:     user.Email,
@@ -654,7 +661,7 @@ func disableUserHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(UserResponse{
+	return c.Status(fiber.StatusOK).JSON(UserResponse{
 		ID:        user.ID,
 		Name:      user.Name,
 		Email:     user.Email,
