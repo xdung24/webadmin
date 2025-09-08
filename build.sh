@@ -23,3 +23,4 @@ echo "Building Go app..."
 CGO_ENABLED=1 go build -ldflags '-w -s' -v -o "$BINARY_NAME"
 
 echo "Build completed successfully!"
+cp webadmin.bat dist/

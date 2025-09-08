@@ -23,8 +23,9 @@ import (
 var embeddedFiles embed.FS
 
 // parse command-line flags
-func parseFlags() (string, bool, bool, bool) {
+func parseFlags() (string, string, bool, bool, bool) {
 	portFlag := flag.String("port", "", "Port to run the server on")
+	sqliteFlag := flag.String("sqlite", "webadmin.db", "SQLite database file path")
 	verboseFlag := flag.Bool("verbose", false, "Enable verbose mode")
 	metricsFlag := flag.Bool("metrics", false, "Enable metrics endpoint")
 	swaggerFlag := flag.Bool("swagger", false, "Enable swagger endpoint")
@@ -37,6 +38,15 @@ func parseFlags() (string, bool, bool, bool) {
 	}
 	if port == "" {
 		port = "8080"
+	}
+
+	// Determine the SQLite database file path
+	sqlitePath := *sqliteFlag
+	if sqlitePath == "" {
+		sqlitePath = os.Getenv("SQLITE_PATH")
+	}
+	if sqlitePath == "" {
+		sqlitePath = "webadmin.db"
 	}
 
 	// Determine the verbose mode
@@ -62,13 +72,13 @@ func parseFlags() (string, bool, bool, bool) {
 			enableSwagger = true
 		}
 	}
-	return port, verbose, enableMetrics, enableSwagger
+	return port, sqlitePath, verbose, enableMetrics, enableSwagger
 }
 
 // server the admin app
-func serveAdminApp(port string, verbose bool, enableMetrics bool, enableSwagger bool) {
+func serveAdminApp(port string, sqlitePath string, verbose bool, enableMetrics bool, enableSwagger bool) {
 	// Initialize database
-	if err := initDatabase(); err != nil {
+	if err := initDatabase(sqlitePath); err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer db.Close()
