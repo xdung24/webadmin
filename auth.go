@@ -1,12 +1,18 @@
 package main
 
 import (
+	"strings"
 	"time"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var jwtSecret = []byte("your-secret-key-change-in-production")
+// jwtSecretString will be set at build time via -ldflags -X
+var jwtSecretString = "default-secret-change-me"
+
+// Convert string to byte slice for use with JWT library
+var jwtSecret = []byte(jwtSecretString)
 
 type Claims struct {
 	UserID   int    `json:"user_id"`
@@ -63,4 +69,48 @@ func validateToken(tokenString string) (*Claims, error) {
 	}
 
 	return claims, nil
+}
+
+// Auth middleware to validate JWT tokens
+func authMiddleware(c *fiber.Ctx) error {
+	authHeader := c.Get("Authorization")
+	if authHeader == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Authorization header required",
+		})
+	}
+
+	// Extract token from "Bearer <token>"
+	parts := strings.Split(authHeader, " ")
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid authorization header format",
+		})
+	}
+
+	token := parts[1]
+	claims, err := validateToken(token)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Invalid or expired token",
+		})
+	}
+
+	// Store user info in context
+	c.Locals("userID", claims.UserID)
+	c.Locals("username", claims.Username)
+	c.Locals("role", claims.Role)
+
+	return c.Next()
+}
+
+// Admin middleware to ensure user has admin role
+func adminMiddleware(c *fiber.Ctx) error {
+	role := c.Locals("role")
+	if role == nil || role.(string) != "admin" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Admin access required",
+		})
+	}
+	return c.Next()
 }

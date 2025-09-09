@@ -11,48 +11,59 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// Auth middleware to validate JWT tokens
-func authMiddleware(c *fiber.Ctx) error {
-	authHeader := c.Get("Authorization")
-	if authHeader == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Authorization header required",
-		})
-	}
-
-	// Extract token from "Bearer <token>"
-	parts := strings.Split(authHeader, " ")
-	if len(parts) != 2 || parts[0] != "Bearer" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Invalid authorization header format",
-		})
-	}
-
-	token := parts[1]
-	claims, err := validateToken(token)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Invalid or expired token",
-		})
-	}
-
-	// Store user info in context
-	c.Locals("userID", claims.UserID)
-	c.Locals("username", claims.Username)
-	c.Locals("role", claims.Role)
-
-	return c.Next()
+type SuccessResponse struct {
+	Message string `json:"message"`
+}
+type ErrorResponse struct {
+	Error string `json:"error"`
 }
 
-// Admin middleware to ensure user has admin role
-func adminMiddleware(c *fiber.Ctx) error {
-	role := c.Locals("role")
-	if role == nil || role.(string) != "admin" {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"error": "Admin access required",
-		})
-	}
-	return c.Next()
+type LoginRequest struct {
+	Username   string `json:"username"`
+	Password   string `json:"password"`
+	RememberMe bool   `json:"rememberMe"`
+}
+
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+type LogoutRequest struct {
+	RefreshToken string `json:"refresh_token,omitempty"`
+}
+
+type CreateUserRequest struct {
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	Name     string `json:"name"`
+	Password string `json:"password"`
+	Role     string `json:"role"` // "admin" or "user"
+	Avatar   string `json:"avatar,omitempty"`
+}
+
+type UpdateUserRequest struct {
+	Email  string `json:"email,omitempty"`
+	Name   string `json:"name,omitempty"`
+	Role   string `json:"role,omitempty"`
+	Status string `json:"status,omitempty"`
+	Avatar string `json:"avatar,omitempty"`
+}
+
+type UserResponse struct {
+	ID        int    `json:"id"`
+	Name      string `json:"name"`
+	Email     string `json:"email"`
+	Avatar    string `json:"avatar"`
+	Username  string `json:"username"`
+	Role      string `json:"role"`
+	Status    string `json:"status"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+}
+
+type UsersListResponse struct {
+	Users []UserResponse `json:"users"`
+	Total int            `json:"total"`
 }
 
 // POST /auth/login
