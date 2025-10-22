@@ -11,13 +11,10 @@ Web Admin
 # Build
 
  - Install node 22 or above
+ - Install yarn
  - Install golang 1.25.0 or above
  - Install gcc
- - Install yarn
+ - Install swago (https://github.com/swaggo/swag)
  - yarn install
  - go mod tidy
  - bash build.sh
-
-## 📃 License
-
-MIT
